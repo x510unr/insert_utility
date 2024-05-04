@@ -1,0 +1,4 @@
+depedentdbname,dependenttblname,dependent_jobid,createdby,frequency
+flexcube_india,actb_history,2001,gray,daily
+ops_volume_sla_preprod,ictb_icalc_final,1009,gray,daily
+flexcube_uae,fttb_contract_master,1179,gray,daily
