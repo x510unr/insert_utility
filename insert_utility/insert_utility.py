@@ -1,121 +1,88 @@
 
-import csv
-import mysql.connector as c
 import sys
+import mysql.connector as c
 
 conn = c.connect(host='localhost', user='root', password='root', database='prod')
 
 cursor = conn.cursor(buffered=True)
 
 
-def is_csv(filename):
-	return filename.lower().endswith('.csv')
+
+def is_csv(input_file):
+	
+	return input_file.endswith('.csv')
 
 
 
-def old_or_new(n):
-	query = "select count(*) from dependencydtls where masterid = %d" %n
+def sql_check(db, tbl):
+	
+	query = """select count(*) from dependencydtls where masterid=%d and depedentdbname = %r and dependenttblname = %r""" %(masterid, db, tbl)
 	
 	cursor.execute(query)
 	result = cursor.fetchone()
 	count = result[0]
 	
-	if count > 0: return 'old'
-	else: return 'new'
-	cursor.close()
-	conn.close()
+	return count
 
-def job_check(n):
-	query = "select count(*) from dependencydtls where dependent_jobid= %d" %n
+def update(roww):
+	depedentdbname,dependenttblname,dependent_jobid,createdby,frequency = roww
+	
+	query = """update dependencydtls set dependent_jobid = %d, createdby = %r, frequency = %r where masterid = %d and depedentdbname = %r and dependenttblname = %r""" %(int(dependent_jobid), createdby, frequency, masterid, depedentdbname, dependenttblname)
 	
 	cursor.execute(query)
-	result = cursor.fetchone()
-	count = result[0]
+	conn.commit()
 	
-	if count > 0: return False
-	else: return True
-
-
-
+def insert(roww):
 	
-def new_insert():
+	depedentdbname,dependenttblname,dependent_jobid,createdby,frequency = roww
+	query = """insert into dependencydtls (depedentdbname, dependenttblname, dependent_jobid, createdby,masterid, frequency)
+	values(%r, %r, %d, %r, %d, %r)""" %(depedentdbname,dependenttblname,int(dependent_jobid),createdby,masterid,frequency)
 	
-	with open(sys.argv[1]) as f:
-		f_csv = csv.reader(f)
-		headers = next(f_csv)
-		#print(headers)
-		lower_headers = [header.lower() for header in headers]
-		if ['depedentdbname','dependenttblname','dependent_jobid','createdby','frequency'] == lower_headers:
-			for row in f_csv:
-				query="""insert into dependencydtls (depedentdbname, dependenttblname, dependent_jobid, createdby,masterid, frequency)
-	values(%r, %r, %d, %r, %d, %r)""" %(row[0], row[1], int(row[2]), row[3], masterid,row[4])
-				
-				cursor.execute(query)
-				conn.commit()
-				#print('%r' %query)
-		else: print("check the header names again")
+	cursor.execute(query)
+	conn.commit()
+
+
+def start():
+	
+	with open(file_name, 'r') as the_file:
 		
+		data = the_file.read()
+		headers = data.split('\n')[0].replace(' ', '').replace('\r', '').lower()
+		data1 = data.split('\n')[1:]
+		columns = "depedentdbname,dependenttblname,dependent_jobid,createdby,frequency"
+		if columns == headers:
 		
-		f.close()
-		cursor.close()
-		conn.close()
-
-		
-
-
-
-def old_insert():
-
-	with open(sys.argv[1]) as f:
-		f_csv = csv.reader(f)
-		headers = next(f_csv)
-		#print(headers)
-		lower_headers = [header.lower() for header in headers]
-		if ['depedentdbname','dependenttblname','dependent_jobid','createdby','frequency'] == lower_headers:
-			
-			for row in f_csv:
-			
-				check_flag = job_check(int(row[2]))
+			for row in list(data1):
 				
-				if check_flag:
-				
-					query="""insert into dependencydtls (depedentdbname, dependenttblname, dependent_jobid, createdby,masterid, frequency)
-		values(%r, %r, %d, %r, %d, %r)""" %(row[0], row[1], int(row[2]), row[3], masterid,row[4])
+				row1 = row.replace(' ', '').replace('\r', '').split(',')
+				if len(row1)==1: pass
+				else: 
+					depedentdbname,dependenttblname,dependent_jobid,createdby,frequency = row1
+					status = sql_check(depedentdbname,dependenttblname)
 					
-					cursor.execute(query)
-					conn.commit()
-				else: pass
+					if status > 0:
+						update(row1)
+					else: 
+						insert(row1)
 				
-		else: print("check the header names again")
+			
+		
+		else: print("the headers are wrong")
 		
 		
-		f.close()
-		cursor.close()
-		conn.close()
-
-
-filee = is_csv(sys.argv[1])
-masterid=int(sys.argv[2])
-
-
-
-
-if filee and len(sys.argv) == 3 :
-	old_or_new = old_or_new(masterid)
-	if old_or_new == 'old': old_insert()
-	else: new_insert()
-
-else: print("the input file should be only in csv format and 1 input should be present")
-
-
-
-
-
-		
-		
-		
-		
-		
-		
-
+	the_file.close()
+	conn.close()
+	cursor.close()
 	
+file_name = sys.argv[1]
+masterid = int(sys.argv[2])
+
+flag = is_csv(file_name)
+
+if flag and len(sys.argv) == 3:
+	start()
+else: print("Input file format is wrong or check the input parameters")
+
+
+
+
